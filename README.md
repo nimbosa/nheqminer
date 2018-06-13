@@ -8,7 +8,7 @@
 Windows builds made by us are available here: https://github.com/nicehash/nheqminer/releases
 
 Download and install:
-- [CUDA SDK](https://developer.nvidia.com/cuda-downloads) (if not needed remove **USE_CUDA_TROMP** and **USE_CUDA_DJEZO** from **nheqminer** Preprocessor definitions under Properties > C/C++ > Preprocessor)
+- [CUDA SDK](https://developer.nvidia.com/cuda-downloads) (if not needed remove **USE_CUDA_TROMP** from **nheqminer** Preprocessor definitions under Properties > C/C++ > Preprocessor)
 - Visual Studio 2013 Community: https://www.visualstudio.com/en-us/news/releasenotes/vs2013-community-vs
 - [Visual Studio Update 5](https://www.microsoft.com/en-us/download/details.aspx?id=48129) installed
 - 64 bit version only
@@ -17,15 +17,13 @@ Open **nheqminer.sln** under **nheqminer/nheqminer.sln** and build. You will hav
 
 ### Enabled solvers: 
   - USE_CPU_TROMP
-  - USE_CPU_XENONCAT
   - USE_CUDA_TROMP
-  - USE_CUDA_DJEZO
 
 If you don't wan't to build with all solvlers you can go to **nheqminer Properties > C/C++ > Preprocessor > Preprocessor Definitions** and remove the solver you don't need.
 
 ## Linux
 Work in progress.
-Working solvers CPU_TROMP, CPU_XENONCAT, CUDA_TROMP, CUDA_DJEZO
+Working solvers CPU_TROMP, CUDA_TROMP
 
 ### General instructions:
   - Install CUDA SDK v8 (make sure you have cuda libraries in **LD_LIBRARY_PATH** and cuda toolkit bins in **PATH**)
@@ -36,19 +34,11 @@ Working solvers CPU_TROMP, CPU_XENONCAT, CUDA_TROMP, CUDA_DJEZO
 
   - Use Boost 1.62+ (if it is not available from the repos you will have to download and build it yourself)
   - CMake v3.5 (if it is not available from the repos you will have to download and build it yourself)
-  - Currently support only static building (CPU_XENONCAT, CUDA_DJEZO are enabled by default, check **CMakeLists.txt** in **nheqminer** root folder)
+  - Currently support only static building (CUDA_TROMP is enabled by default, check **CMakeLists.txt** in **nheqminer** root folder)
   - If not on Ubuntu make sure you have **fasm** installed and accessible in **PATH**
   - After that open the terminal and run the following commands:
     - `git clone https://github.com/nicehash/nheqminer.git`
-    - Generating asm object file:
-      - **On Ubuntu**:
-        - `cd nheqminer/cpu_xenoncat/asm_linux/`
-        - `sh assemble.sh`
-      - **bundeled fasm not compatible**:
-        - delete/replace (inside **nheqminer/cpu_xenoncat/asm_linux/** directory) with fasm binary compatible with your distro
-        - `cd nheqminer/cpu_xenoncat/asm_linux/`
-        - `sh assemble.sh`
-    - `cd ../../../`
+    - `cd nheqminer`
     - `mkdir build && cd build`
     - `cmake ../nheqminer`
     - `make -j $(nproc)`

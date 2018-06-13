@@ -104,8 +104,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\cpu_tromp\cpu_tromp.hpp" />
-    <ClInclude Include="..\cpu_xenoncat\cpu_xenoncat.hpp" />
-    <ClInclude Include="..\cuda_djezo\cuda_djezo.hpp" />
     <ClInclude Include="..\cuda_tromp\cuda_tromp.hpp" />
     <ClInclude Include="amount.h" />
     <ClInclude Include="api.hpp" />

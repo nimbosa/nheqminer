@@ -12,11 +12,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nheqminer", "nheqminer.vcxp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cuda_tromp", "..\cuda_tromp\cuda_tromp.vcxproj", "{33C2B469-F025-4223-B9B6-E69D42FEA7D6}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpu_xenoncat", "..\cpu_xenoncat\cpu_xenoncat.vcxproj", "{299E011B-5242-4EDA-B2F2-73C9B48F12FD}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpu_tromp", "..\cpu_tromp\cpu_tromp.vcxproj", "{6C180164-4DBE-45D7-85E0-7BDFACF3FC7B}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cuda_djezo", "..\cuda_djezo\cuda_djezo.vcxproj", "{268B10AD-D845-498B-8663-AB8911CA2039}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

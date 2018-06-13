@@ -365,13 +365,12 @@ void ZcashMiner::start()
 	minerThreads = new std::thread[nThreads];
 	minerThreadActive = new bool[nThreads];
 
-	// sort solvers CPU, CUDA, OPENCL
+	// sort solvers CPU, CUDA
 	std::sort(solvers.begin(), solvers.end(), [](const ISolver* a, const ISolver* b) { return a->GetType() < b->GetType(); });
 
 	// start solvers
 	// #1 start cpu threads
 	// #2 start CUDA threads
-	// #3 start OPENCL threads
 	for (int i = 0; i < solvers.size(); ++i) {
 		minerThreadActive[i] = true;
 		minerThreads[i] = std::thread(boost::bind(&ZcashMinerThread, this, nThreads, i, solvers[i]));
@@ -391,39 +390,6 @@ void ZcashMiner::start()
 #endif
 		}
 	}
-
-    
-    
-    //for ( ; )
-    //{
-    //    
-    //}
-
-
-
-    //
-    //for (; i < (cpu_contexts.size() + cuda_contexts.size()); ++i)
-    //{
-    //    minerThreadActive[i] = true;
-    //    minerThreads[i] = std::thread(boost::bind(&ZcashMinerThread<CPUSolver, CUDASolver, OPENCLSolver, CUDASolver>,
-    //        this, nThreads, i, *cuda_contexts.at(i - cpu_contexts.size())));
-    //}
-
-
-
-    //
-    //for (; i < (cpu_contexts.size() + cuda_contexts.size() + opencl_contexts.size()); ++i)
-    //{
-    //    minerThreadActive[i] = true;
-    //    minerThreads[i] = std::thread(boost::bind(&ZcashMinerThread<CPUSolver, CUDASolver, OPENCLSolver, OPENCLSolver>,
-    //        this, nThreads, i, *opencl_contexts.at(i - cpu_contexts.size() - cuda_contexts.size())));
-    //}
-
-
-    ///*minerThreads = new boost::thread_group();
-    //for (int i = 0; i < nThreads; i++) {
-    //    minerThreads->create_thread(boost::bind(&ZcashMinerThread, this, nThreads, i));
-    //}*/
 
 	speed.Reset();
 }
@@ -671,9 +637,6 @@ void Solvers_doBenchmark(int hashes, const std::vector<ISolver *> &solvers) {
 		}
 		else if (solver->GetType() == SolverType::CUDA) {
 			BOOST_LOG_TRIVIAL(info) << "Benchmarking CUDA worker (" << solver->getname() << ") " << solver->getdevinfo();
-		}
-		else if (solver->GetType() == SolverType::OPENCL) {
-			BOOST_LOG_TRIVIAL(info) << "Benchmarking OPENCL worker (" << solver->getname() << ") " << solver->getdevinfo();
 		}
 	}
 
