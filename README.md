@@ -1,7 +1,18 @@
+# ZHMiner
+
+ZHMiner is a Zhash CPU&GPU Miner for LitecoinZ based on NiceHash's nheqminer.
+
+## About Zhash PoW
+
+The Zhash PoW is based on the Equihash 144,5 algorithm, a memory hard algorithm
+solving the Generalized Birthday Problem. Zhash uses a larger amount of memory 
+(700 MB) in comparison to Equihash 200,9 (150 MB) making itself ASIC resistant.
+
 # Build instructions:
 
 ### Dependencies:
   - Boost 1.62+
+  - Cuda tools 8.0+
 
 ## Windows:
 
@@ -19,7 +30,7 @@ Open **zhminer.sln** under **zhminer/zhminer.sln** and build. You will have to b
   - USE_CPU_TROMP
   - USE_CUDA_TROMP
 
-If you don't wan't to build with all solvlers you can go to **zhminer Properties > C/C++ > Preprocessor > Preprocessor Definitions** and remove the solver you don't need.
+If you don't wan't to build with all solvers you can go to **zhminer Properties > C/C++ > Preprocessor > Preprocessor Definitions** and remove the solver you don't need.
 
 ## Linux
 Work in progress.
@@ -48,7 +59,7 @@ Working solvers CPU_TROMP, CUDA_TROMP
 Parameters: 
 	-h		Print this help and quit
 	-l [location]	Stratum server:port
-	-u [username]	Username (bitcoinaddress)
+	-u [username]	Username (litecoinzaddress)
 	-a [port]	Local API port (default: 0 = do not bind)
 	-d [level]	Debug print level (0 = print all, 5 = fatal only, default: 2)
 	-b [hashes]	Run in benchmark mode (default: 200 iterations)
