@@ -174,8 +174,8 @@ int main(int argc, char* argv[])
 	std::cout << "\t================= https://litecoinz.org ==================" << std::endl;
 	std::cout << std::endl;
 
-	std::string location = "pool.litecoinz.org:3357";
-	std::string user = "L1VtVDZNYHj2zWiEC89AawazGvNRSNCzrhq";
+	std::string location = "equihash.eu.nicehash.com:3357";
+	std::string user = "34HKWdzLxWBduUfJE9JxaFhoXnfC6gmePG";
 	std::string password = "x";
 	int num_threads = 0;
 	bool benchmark = false;
