@@ -1,32 +1,20 @@
-project(nheqminer)
+project(zhminer)
 cmake_minimum_required(VERSION 3.5)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11") #  -Wall
 
 ## Enable solvers here
-#### older slower
-option(USE_CPU_TROMP "USE CPU_TROMP" OFF)
-option(USE_CUDA_TROMP "USE CUDA_TROMP" OFF)
-#### faster
-option(USE_CPU_XENONCAT "USE CPU_XENONCAT" ON)
-option(USE_CUDA_DJEZO "USE CUDA_DJEZO" ON)
+option(USE_CPU_TROMP "USE CPU_TROMP" ON)
+option(USE_CUDA_TROMP "USE CUDA_TROMP" ON)
 
 ## Add solvers here
 if (USE_CPU_TROMP)
     add_definitions(-DUSE_CPU_TROMP)
     message("-- USE_CPU_TROMP DEFINED")
 endif()
-if (USE_CPU_XENONCAT)
-    add_definitions(-DUSE_CPU_XENONCAT)
-    message("-- USE_CPU_XENONCAT DEFINED")
-endif()
 if (USE_CUDA_TROMP)
     add_definitions(-DUSE_CUDA_TROMP)
     message("-- USE_CUDA_TROMP DEFINED")
-endif()
-if (USE_CUDA_DJEZO)
-    add_definitions(-DUSE_CUDA_DJEZO)
-    message("-- USE_CUDA_DJEZO DEFINED")
 endif()
 
 
@@ -48,7 +36,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 # Common
-include_directories(${nheqminer_SOURCE_DIR}/nheqminer)
+include_directories(${zhminer_SOURCE_DIR}/zhminer)
 
 # BOOST
 #find_package(Threads REQUIRED COMPONENTS)
@@ -82,61 +70,61 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/../)
 
 set(SOURCE_FILES
     # sources
-    nheqminer/amount.cpp
-    nheqminer/api.cpp
-    nheqminer/arith_uint256.cpp
-    nheqminer/crypto/sha256.cpp
-    nheqminer/json/json_spirit_reader.cpp
-    nheqminer/json/json_spirit_value.cpp
-    nheqminer/json/json_spirit_writer.cpp
-    nheqminer/libstratum/ZcashStratum.cpp
-    nheqminer/main.cpp
-    nheqminer/primitives/block.cpp
-    nheqminer/speed.cpp
-    nheqminer/uint256.cpp
-    nheqminer/utilstrencodings.cpp
+    zhminer/amount.cpp
+    zhminer/api.cpp
+    zhminer/arith_uint256.cpp
+    zhminer/crypto/sha256.cpp
+    zhminer/json/json_spirit_reader.cpp
+    zhminer/json/json_spirit_value.cpp
+    zhminer/json/json_spirit_writer.cpp
+    zhminer/libstratum/ZcashStratum.cpp
+    zhminer/main.cpp
+    zhminer/primitives/block.cpp
+    zhminer/speed.cpp
+    zhminer/uint256.cpp
+    zhminer/utilstrencodings.cpp
     # headers
-    nheqminer/amount.h
-    nheqminer/api.hpp
-    nheqminer/arith_uint256.h
-    nheqminer/crypto/sha256.h
-    nheqminer/hash.h
-    nheqminer/json/json_spirit.h
-    nheqminer/json/json_spirit_error_position.h
-    nheqminer/json/json_spirit_reader.h
-    nheqminer/json/json_spirit_reader_template.h
-    nheqminer/json/json_spirit_stream_reader.h
-    nheqminer/json/json_spirit_utils.h
-    nheqminer/json/json_spirit_value.h
-    nheqminer/json/json_spirit_writer.h
-    nheqminer/json/json_spirit_writer_template.h
-    nheqminer/libstratum/StratumClient.cpp
-    nheqminer/libstratum/StratumClient.h
-    nheqminer/libstratum/ZcashStratum.cpp
-    nheqminer/libstratum/ZcashStratum.h
-    nheqminer/primitives/block.h
-    nheqminer/primitives/transaction.h
-    nheqminer/script/script.h
-    nheqminer/serialize.h
-    nheqminer/speed.hpp
-    nheqminer/streams.h
-    nheqminer/support/allocators/zeroafterfree.h
-    nheqminer/tinyformat.h
-    nheqminer/uint252.h
-    nheqminer/uint256.h
-    nheqminer/utilstrencodings.h
-    nheqminer/version.h
-    nheqminer/zcash/JoinSplit.hpp
-    nheqminer/zcash/NoteEncryption.hpp
-    nheqminer/zcash/Proof.hpp
-    nheqminer/zcash/Zcash.h
-    nheqminer/SolverStub.h # just a stub
+    zhminer/amount.h
+    zhminer/api.hpp
+    zhminer/arith_uint256.h
+    zhminer/crypto/sha256.h
+    zhminer/hash.h
+    zhminer/json/json_spirit.h
+    zhminer/json/json_spirit_error_position.h
+    zhminer/json/json_spirit_reader.h
+    zhminer/json/json_spirit_reader_template.h
+    zhminer/json/json_spirit_stream_reader.h
+    zhminer/json/json_spirit_utils.h
+    zhminer/json/json_spirit_value.h
+    zhminer/json/json_spirit_writer.h
+    zhminer/json/json_spirit_writer_template.h
+    zhminer/libstratum/StratumClient.cpp
+    zhminer/libstratum/StratumClient.h
+    zhminer/libstratum/ZcashStratum.cpp
+    zhminer/libstratum/ZcashStratum.h
+    zhminer/primitives/block.h
+    zhminer/primitives/transaction.h
+    zhminer/script/script.h
+    zhminer/serialize.h
+    zhminer/speed.hpp
+    zhminer/streams.h
+    zhminer/support/allocators/zeroafterfree.h
+    zhminer/tinyformat.h
+    zhminer/uint252.h
+    zhminer/uint256.h
+    zhminer/utilstrencodings.h
+    zhminer/version.h
+    zhminer/zcash/JoinSplit.hpp
+    zhminer/zcash/NoteEncryption.hpp
+    zhminer/zcash/Proof.hpp
+    zhminer/zcash/Zcash.h
+    zhminer/SolverStub.h # just a stub
 
-    nheqminer/AvailableSolvers.h
-    nheqminer/ISolver.h
-    nheqminer/Solver.h
-    nheqminer/MinerFactory.h
-    nheqminer/MinerFactory.cpp
+    zhminer/AvailableSolvers.h
+    zhminer/ISolver.h
+    zhminer/Solver.h
+    zhminer/MinerFactory.h
+    zhminer/MinerFactory.cpp
 
     # make same path on windows
     #blake shared
@@ -161,17 +149,9 @@ message("-- LIBS: ${LIBS}")
 if (USE_CPU_TROMP)
     add_subdirectory(cpu_tromp)
 endif()
-if (USE_CPU_XENONCAT)
-    add_subdirectory(cpu_xenoncat)
-endif()
 if (USE_CUDA_TROMP)
     add_subdirectory(cuda_tromp)
 endif()
-if (USE_CUDA_DJEZO)
-    add_subdirectory(cuda_djezo)
-endif()
-
-#add_subdirectory(cpu_xenoncat)
 
 ADD_EXECUTABLE(${PROJECT_NAME} ${SOURCE_FILES})
 
@@ -182,17 +162,7 @@ target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${LIBS} )
 if (USE_CPU_TROMP)
     target_link_libraries(${PROJECT_NAME} cpu_tromp)
 endif()
-if (USE_CPU_XENONCAT)
-    add_library ( xenoncat_avx1 SHARED IMPORTED GLOBAL )
-    set_target_properties ( xenoncat_avx1 PROPERTIES IMPORTED_LOCATION "../nheqminer/cpu_xenoncat/asm_linux/equihash_avx1.o" )
-    add_library ( xenoncat_avx2 SHARED IMPORTED GLOBAL )
-    set_target_properties ( xenoncat_avx2 PROPERTIES IMPORTED_LOCATION "../nheqminer/cpu_xenoncat/asm_linux/equihash_avx2.o" )
-    target_link_libraries(${PROJECT_NAME} cpu_xenoncat xenoncat_avx1 xenoncat_avx2)
-endif()
 if (USE_CUDA_TROMP)
     target_link_libraries(${PROJECT_NAME} cuda_tromp)
-endif()
-if (USE_CUDA_DJEZO)
-    target_link_libraries(${PROJECT_NAME} cuda_djezo)
 endif()
 

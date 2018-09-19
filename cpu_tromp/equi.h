@@ -2,7 +2,6 @@
 // Equihash solver
 // Copyright (c) 2016-2016 John Tromp
 
-
 #include "blake2/blake2.h"
 #ifdef __APPLE__
 #include "osx_barrier.h"
@@ -26,11 +25,11 @@ typedef unsigned char uchar;
 // algorithm parameters, prefixed with W to reduce include file conflicts
 
 #ifndef WN
-#define WN	200
+#define WN	144
 #endif
 
 #ifndef WK
-#define WK	9
+#define WK	5
 #endif
 
 #define PARAMETER_N WN
@@ -132,4 +131,3 @@ int verify(u32 indices[PROOFSIZE], const char *header, const u32 headerlen, cons
   uchar hash[WN/8];
   return verifyrec(&ctx, indices, hash, WK);
 }
-

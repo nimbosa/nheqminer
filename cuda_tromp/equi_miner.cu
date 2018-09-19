@@ -1,8 +1,8 @@
 // Equihash CUDA solver
 // Copyright (c) 2016 John Tromp
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#define XINTREE
-#define UNROLL
 #define htole32(x) (x)
 #define HAVE_DECL_HTOLE32 1
 
@@ -43,8 +43,6 @@ typedef uint64_t u64;
 
 // number of buckets
 static const u32 NBUCKETS = 1 << BUCKBITS;
-// bucket mask
-static const u32 BUCKMASK = NBUCKETS - 1;
 // 2_log of number of slots per bucket
 static const u32 SLOTBITS = RESTBITS + 1 + 1;
 static const u32 SLOTRANGE = 1 << SLOTBITS;
@@ -59,7 +57,7 @@ static const u32 RESTMASK = NRESTS - 1;
 // number of blocks of hashes extracted from single 512 bit blake2b output
 static const u32 NBLOCKS = (NHASHES + HASHESPERBLAKE - 1) / HASHESPERBLAKE;
 // nothing larger found in 100000 runs
-static const u32 MAXSOLS = 8;
+static const u32 MAXSOLS = 10;
 
 // tree node identifying its children as two different slots in
 // a bucket on previous layer with the same rest bits (x-tra hash)
@@ -72,10 +70,11 @@ struct tree {
 	__device__ tree(const u32 idx) {
 		bid_s0_s1_x = idx;
 	}
-	__device__ tree(const u32 bid, const u32 s0, const u32 s1, const u32 xh) {
 #ifdef XINTREE
+	__device__ tree(const u32 bid, const u32 s0, const u32 s1, const u32 xh) {
 		bid_s0_s1_x = ((((bid << SLOTBITS) | s0) << SLOTBITS) | s1) << RESTBITS | xh;
 #else
+	__device__ tree(const u32 bid, const u32 s0, const u32 s1) {
 		bid_s0_s1_x = (((bid << SLOTBITS) | s0) << SLOTBITS) | s1;
 #endif
 	}
@@ -110,7 +109,13 @@ struct tree {
 	__device__ u32 xhash() const {
 		return bid_s0_s1_x & RESTMASK;
 	}
-};
+	__device__ bool prob_disjoint(const tree other) const {
+		tree xort(bid_s0_s1_x ^ other.bid_s0_s1_x);
+		return xort.bucketid() || (xort.slotid0() && xort.slotid1());
+		// next two tests catch much fewer cases and are therefore skipped
+		// && slotid0() != other.slotid1() && slotid1() != other.slotid0()
+	}
+	};
 
 union hashunit {
 	u32 word;
@@ -201,7 +206,7 @@ struct equi {
 		nslot = 0;
 		return n;
 	}
-	__device__ void orderindices(u32 *indices, u32 size) {
+	__device__ bool orderindices(u32 *indices, u32 size) {
 		if (indices[0] > indices[size]) {
 			for (u32 i = 0; i < size; i++) {
 				const u32 tmp = indices[i];
@@ -209,85 +214,89 @@ struct equi {
 				indices[size + i] = tmp;
 			}
 		}
+		return false;
 	}
-	__device__ void listindices1(const tree t, u32 *indices) {
+	__device__ bool listindices1(const tree t, u32 *indices) {
 		const bucket0 &buck = hta.trees0[0][t.bucketid()];
 		const u32 size = 1 << 0;
 		indices[0] = buck[t.slotid0()].attr.getindex();
 		indices[size] = buck[t.slotid1()].attr.getindex();
 		orderindices(indices, size);
+		return false;
 	}
-	__device__ void listindices2(const tree t, u32 *indices) {
+	__device__ bool listindices2(const tree t, u32 *indices) {
 		const bucket1 &buck = hta.trees1[0][t.bucketid()];
 		const u32 size = 1 << 1;
-		listindices1(buck[t.slotid0()].attr, indices);
-		listindices1(buck[t.slotid1()].attr, indices + size);
-		orderindices(indices, size);
+		return listindices1(buck[t.slotid0()].attr, indices) ||
+			listindices1(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
-	__device__ void listindices3(const tree t, u32 *indices) {
+	__device__ bool listindices3(const tree t, u32 *indices) {
 		const bucket0 &buck = hta.trees0[1][t.bucketid()];
 		const u32 size = 1 << 2;
-		listindices2(buck[t.slotid0()].attr, indices);
-		listindices2(buck[t.slotid1()].attr, indices + size);
-		orderindices(indices, size);
+		return listindices2(buck[t.slotid0()].attr, indices) ||
+			listindices2(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
-	__device__ void listindices4(const tree t, u32 *indices) {
+	__device__ bool listindices4(const tree t, u32 *indices) {
 		const bucket1 &buck = hta.trees1[1][t.bucketid()];
 		const u32 size = 1 << 3;
-		listindices3(buck[t.slotid0()].attr, indices);
-		listindices3(buck[t.slotid1()].attr, indices + size);
-		orderindices(indices, size);
+		return listindices3(buck[t.slotid0()].attr, indices) ||
+			listindices3(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
-	__device__ void listindices5(const tree t, u32 *indices) {
+	__device__ bool listindices5(const tree t, u32 *indices) {
 		const bucket0 &buck = hta.trees0[2][t.bucketid()];
 		const u32 size = 1 << 4;
-		listindices4(buck[t.slotid0()].attr, indices);
-		listindices4(buck[t.slotid1()].attr, indices+size);
-		orderindices(indices, size);
+		return listindices4(buck[t.slotid0()].attr, indices) ||
+			listindices4(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
-	__device__ void listindices6(const tree t, u32 *indices) {
+	__device__ bool listindices6(const tree t, u32 *indices) {
 		const bucket1 &buck = hta.trees1[2][t.bucketid()];
 		const u32 size = 1 << 5;
-		listindices5(buck[t.slotid0()].attr, indices);
-		listindices5(buck[t.slotid1()].attr, indices+size);
-		orderindices(indices, size);
+		return listindices5(buck[t.slotid0()].attr, indices) ||
+			listindices5(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
-	__device__ void listindices7(const tree t, u32 *indices) {
+	__device__ bool listindices7(const tree t, u32 *indices) {
 		const bucket0 &buck = hta.trees0[3][t.bucketid()];
 		const u32 size = 1 << 6;
-		listindices6(buck[t.slotid0()].attr, indices);
-		listindices6(buck[t.slotid1()].attr, indices+size);
-		orderindices(indices, size);
+		return listindices6(buck[t.slotid0()].attr, indices) ||
+			listindices6(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
-	__device__ void listindices8(const tree t, u32 *indices) {
+	__device__ bool listindices8(const tree t, u32 *indices) {
 		const bucket1 &buck = hta.trees1[3][t.bucketid()];
 		const u32 size = 1 << 7;
-		listindices7(buck[t.slotid0()].attr, indices);
-		listindices7(buck[t.slotid1()].attr, indices+size);
-		orderindices(indices, size);
+		return listindices7(buck[t.slotid0()].attr, indices) ||
+			listindices7(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
-	__device__ void listindices9(const tree t, u32 *indices) {
+	__device__ bool listindices9(const tree t, u32 *indices) {
 		const bucket0 &buck = hta.trees0[4][t.bucketid()];
 		const u32 size = 1 << 8;
-		listindices8(buck[t.slotid0()].attr, indices);
-		listindices8(buck[t.slotid1()].attr, indices+size);
-		orderindices(indices, size);
+		return listindices8(buck[t.slotid0()].attr, indices) ||
+			listindices8(buck[t.slotid1()].attr, indices + size) ||
+			orderindices(indices, size) || indices[0] == indices[size];
 	}
 	__device__ void candidate(const tree t) {
 		proof prf;
 #if WK==9
-		listindices9(t, prf);
+		if (listindices9(t, prf)) return;
+#elif WK==7
+		if (listindices7(t, prf)) return;
 #elif WK==5
-		listindices5(t, prf);
+		if (listindices5(t, prf)) return;
 #else
 #error not implemented
 #endif
-		if (probdupe(prf))
-			return;
 		u32 soli = atomicAdd(&nsols, 1);
 		if (soli < MAXSOLS)
 #if WK==9
 			listindices9(t, sols[soli]);
+#elif WK==7
+			listindices7(t, sols[soli]);
 #elif WK==5
 			listindices5(t, sols[soli]);
 #else
@@ -320,19 +329,6 @@ struct equi {
 		}
 		printf("\n");
 #endif
-		}
-	// proper dupe test is a little costly on GPU, so allow false negatives
-	__device__ bool probdupe(u32 *prf) {
-		unsigned short susp[PROOFSIZE];
-		memset(susp, 0xffff, PROOFSIZE * sizeof(unsigned short));
-		for (u32 i=0; i<PROOFSIZE; i++) {
-			u32 bin = prf[i] & (PROOFSIZE-1);
-			unsigned short msb = prf[i]>>WK;
-			if (msb == susp[bin])
-				return true;
-			susp[bin] = msb;
-		}
-		return false;
 	}
 	struct htlayout {
 		htalloc hta;
@@ -348,7 +344,7 @@ struct equi {
 			prevbo = 0;
 			nextbo = nexthashunits * sizeof(hashunit) - nexthashbytes; // 0-3
 			if (r) {
-				u32 prevhashbytes = hashsize(r-1);
+				u32 prevhashbytes = hashsize(r - 1);
 				prevhashunits = hashwords(prevhashbytes);
 				prevbo = prevhashunits * sizeof(hashunit) - prevhashbytes; // 0-3
 				dunits = prevhashunits - nexthashunits;
@@ -357,14 +353,18 @@ struct equi {
 		__device__ u32 getxhash0(const slot0* pslot) const {
 #ifdef XINTREE
 			return pslot->attr.xhash();
-#elif WN == 200 && RESTBITS == 4
+#elif DIGITBITS % 8 == 4 && RESTBITS == 4
 			return pslot->hash->bytes[prevbo] >> 4;
-#elif WN == 200 && RESTBITS == 8
+#elif DIGITBITS % 8 == 4 && RESTBITS == 6
+			return (pslot->hash->bytes[prevbo] & 0x3) << 4 | pslot->hash->bytes[prevbo + 1] >> 4;
+#elif DIGITBITS % 8 == 4 && RESTBITS == 8
 			return (pslot->hash->bytes[prevbo] & 0xf) << 4 | pslot->hash->bytes[prevbo + 1] >> 4;
-#elif WN == 144 && RESTBITS == 4
+#elif DIGITBITS % 8 == 4 && RESTBITS == 10
+			return (pslot->hash->bytes[prevbo] & 0x3f) << 4 | pslot->hash->bytes[prevbo + 1] >> 4;
+#elif DIGITBITS % 8 == 0 && RESTBITS == 4
 			return pslot->hash->bytes[prevbo] & 0xf;
-#elif WN == 200 && RESTBITS == 6
-			return (pslot->hash->bytes[prevbo] & 0x3) << 4 | pslot->hash->bytes[prevbo+1] >> 4;
+#elif RESTBITS == 0
+			return 0;
 #else
 #error non implemented
 #endif
@@ -372,14 +372,16 @@ struct equi {
 		__device__ u32 getxhash1(const slot1* pslot) const {
 #ifdef XINTREE
 			return pslot->attr.xhash();
-#elif WN == 200 && RESTBITS == 4
+#elif DIGITBITS % 4 == 0 && RESTBITS == 4
 			return pslot->hash->bytes[prevbo] & 0xf;
-#elif WN == 200 && RESTBITS == 8
-			return pslot->hash->bytes[prevbo];
-#elif WN == 144 && RESTBITS == 4
-			return pslot->hash->bytes[prevbo] & 0xf;
-#elif WN == 200 && RESTBITS == 6
+#elif DIGITBITS % 4 == 0 && RESTBITS == 6
 			return pslot->hash->bytes[prevbo] & 0x3f;
+#elif DIGITBITS % 4 == 0 && RESTBITS == 8
+			return pslot->hash->bytes[prevbo];
+#elif DIGITBITS % 4 == 0 && RESTBITS == 10
+			return (pslot->hash->bytes[prevbo] & 0x3) << 8 | pslot->hash->bytes[prevbo + 1];
+#elif RESTBITS == 0
+			return 0;
 #else
 #error non implemented
 #endif
@@ -417,17 +419,15 @@ struct equi {
 			memset(nextxhashslot, xnil, NSLOTS * sizeof(xslot));
 #endif
 		}
-		__device__ bool addslot(u32 s1, u32 xh) {
+		__device__ void addslot(u32 s1, u32 xh) {
 #ifdef XBITMAP
 			xmap = xhashmap[xh];
 			xhashmap[xh] |= (u64)1 << s1;
 			s0 = ~0;
-			return true;
 #else
 			nextslot = xhashslots[xh];
 			nextxhashslot[s1] = nextslot;
 			xhashslots[xh] = s1;
-			return true;
 #endif
 		}
 		__device__ bool nextcollision() const {
@@ -447,7 +447,7 @@ struct equi {
 			return s0;
 		}
 	};
-		};
+};
 
 __global__ void digitH(equi *eq) {
 	uchar hash[HASHOUT];
@@ -476,7 +476,9 @@ __global__ void digitH(equi *eq) {
 #endif
 #elif BUCKBITS == 12 && RESTBITS == 4
 			const u32 bucketid = ((u32)ph[0] << 4) | ph[1] >> 4;
+#ifdef XINTREE
 			const u32 xhash = ph[1] & 0xf;
+#endif
 #else
 #error not implemented
 #endif
@@ -485,11 +487,11 @@ __global__ void digitH(equi *eq) {
 				continue;
 			slot0 &s = eq->hta.trees0[0][bucketid][slot];
 #ifdef XINTREE
-			s.attr = tree(block*HASHESPERBLAKE+i, xhash);
+			s.attr = tree(block*HASHESPERBLAKE + i, xhash);
 #else
-			s.attr = tree(block*HASHESPERBLAKE+i);
+			s.attr = tree(block*HASHESPERBLAKE + i);
 #endif
-			memcpy(s.hash->bytes+htl.nextbo, ph+WN/8-hashbytes, hashbytes);
+			memcpy(s.hash->bytes + htl.nextbo, ph + WN / 8 - hashbytes, hashbytes);
 		}
 	}
 }
@@ -504,9 +506,7 @@ __global__ void digitO(equi *eq, const u32 r) {
 		u32 bsize = eq->getnslots0(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot0 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash0(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash0(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot0 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -519,7 +519,7 @@ __global__ void digitO(equi *eq, const u32 r) {
 					| (bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1])) << 4
 					| (xhash = bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2]) >> 4;
 				xhash &= 0xf;
-#elif WN == 144 && BUCKBITS == 20 && RESTBITS == 4
+#elif WN % 24 == 0 && BUCKBITS == 20 && RESTBITS == 4
 				xorbucketid = ((((u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) << 8)
 					| (bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2])) << 4)
 					| (xhash = bytes0[htl.prevbo + 3] ^ bytes1[htl.prevbo + 3]) >> 4;
@@ -528,6 +528,8 @@ __global__ void digitO(equi *eq, const u32 r) {
 				xorbucketid = ((u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) << 4)
 					| (xhash = bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2]) >> 4;
 				xhash &= 0xf;
+#elif WN == 48 && BUCKBITS == 4 && RESTBITS == 4
+				xorbucketid = (u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) >> 4;
 #elif WN == 200 && BUCKBITS == 14 && RESTBITS == 6
 				xorbucketid = ((((u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) & 0xf) << 8)
 					| (bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2])) << 2
@@ -538,13 +540,13 @@ __global__ void digitO(equi *eq, const u32 r) {
 				const u32 xorslot = atomicAdd(&eq->nslots[1][xorbucketid], 1);
 				if (xorslot >= NSLOTS)
 					continue;
-				slot1 &xs = htl.hta.trees1[r/2][xorbucketid][xorslot];
+				slot1 &xs = htl.hta.trees1[r / 2][xorbucketid][xorslot];
 #ifdef XINTREE
 				xs.attr = tree(bucketid, s0, s1, xhash);
 #else
 				xs.attr = tree(bucketid, s0, s1);
 #endif
-				for (u32 i=htl.dunits; i < htl.prevhashunits; i++)
+				for (u32 i = htl.dunits; i < htl.prevhashunits; i++)
 					xs.hash[i - htl.dunits].word = pslot0->hash[i].word ^ pslot1->hash[i].word;
 			}
 		}
@@ -561,27 +563,26 @@ __global__ void digitE(equi *eq, const u32 r) {
 		u32 bsize = eq->getnslots1(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot1 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash1(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash1(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot1 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
 					continue;
 				u32 xorbucketid;
-				u32 xhash;
 				const uchar *bytes0 = pslot0->hash->bytes, *bytes1 = pslot1->hash->bytes;
 #if WN == 200 && BUCKBITS == 16 && RESTBITS == 4 && defined(XINTREE)
 				xorbucketid = ((u32)(bytes0[htl.prevbo] ^ bytes1[htl.prevbo]) << 8)
 					| (bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]);
-				xhash = (bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2]) >> 4;
-#elif WN == 144 && BUCKBITS == 20 && RESTBITS == 4
+				u32 xhash = (bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2]) >> 4;
+#elif WN % 24 == 0 && BUCKBITS == 20 && RESTBITS == 4
 				xorbucketid = ((((u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) << 8)
 					| (bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2])) << 4)
 					| (bytes0[htl.prevbo + 3] ^ bytes1[htl.prevbo + 3]) >> 4;
 #elif WN == 96 && BUCKBITS == 12 && RESTBITS == 4
 				xorbucketid = ((u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) << 4)
 					| (bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2]) >> 4;
+#elif WN == 48 && BUCKBITS == 4 && RESTBITS == 4
+				xorbucketid = (u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) >> 4;
 #elif WN == 200 && BUCKBITS == 14 && RESTBITS == 6
 				xorbucketid = ((u32)(bytes0[htl.prevbo + 1] ^ bytes1[htl.prevbo + 1]) << 6)
 					| (bytes0[htl.prevbo + 2] ^ bytes1[htl.prevbo + 2]) >> 2;
@@ -605,6 +606,9 @@ __global__ void digitE(equi *eq, const u32 r) {
 }
 
 #ifdef UNROLL
+// bucket mask
+static const u32 BUCKMASK = NBUCKETS - 1;
+
 __global__ void digit_1(equi *eq) {
 	equi::htlayout htl(eq, 1);
 	equi::collisiondata cd;
@@ -615,9 +619,7 @@ __global__ void digit_1(equi *eq) {
 		u32 bsize = eq->getnslots0(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot0 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash0(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash0(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot0 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -650,9 +652,7 @@ __global__ void digit2(equi *eq) {
 		u32 bsize = eq->getnslots1(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot1 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash1(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash1(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot1 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -685,9 +685,7 @@ __global__ void digit3(equi *eq) {
 		u32 bsize = eq->getnslots0(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot0 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash0(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash0(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot0 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -720,9 +718,7 @@ __global__ void digit4(equi *eq) {
 		u32 bsize = eq->getnslots1(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot1 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash1(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash1(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot1 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -754,9 +750,7 @@ __global__ void digit5(equi *eq) {
 		u32 bsize = eq->getnslots0(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot0 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash0(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash0(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot0 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -788,9 +782,7 @@ __global__ void digit6(equi *eq) {
 		u32 bsize = eq->getnslots1(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot1 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash1(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash1(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot1 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -821,9 +813,7 @@ __global__ void digit7(equi *eq) {
 		u32 bsize = eq->getnslots0(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot0 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash0(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash0(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot0 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -853,9 +843,7 @@ __global__ void digit8(equi *eq) {
 		u32 bsize = eq->getnslots1(bucketid);
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot1 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash1(pslot1)))
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash1(pslot1)); cd.nextcollision();) {
 				const u32 s0 = cd.slot();
 				const slot1 *pslot0 = buck + s0;
 				if (htl.equal(pslot0->hash, pslot1->hash))
@@ -887,12 +875,10 @@ __global__ void digitK(equi *eq) {
 		u32 bsize = eq->getnslots0(bucketid); // assume WK odd
 		for (u32 s1 = 0; s1 < bsize; s1++) {
 			const slot0 *pslot1 = buck + s1;
-			if (!cd.addslot(s1, htl.getxhash0(pslot1))) // assume WK odd
-				continue;
-			for (; cd.nextcollision();) {
+			for (cd.addslot(s1, htl.getxhash0(pslot1)); cd.nextcollision();) { // assume WK odd
 				const u32 s0 = cd.slot();
 				const slot0 *pslot0 = buck + s0;
-				if (htl.equal(pslot0->hash, pslot1->hash)) {
+				if (htl.equal(pslot0->hash, pslot1->hash) && pslot0->attr.prob_disjoint(pslot1->attr)) {
 #ifdef XINTREE
 					eq->candidate(tree(bucketid, s0, s1, 0));
 #else
