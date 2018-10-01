@@ -9,7 +9,6 @@
 struct NAME { \
     int threadsperblock; \
     int blocks; \
-    int use_opt; \
     NAME() {} \
     NAME(int platf_id, int dev_id) {} \
     std::string getdevinfo() { return ""; } \
@@ -26,5 +25,4 @@ struct NAME { \
         std::function<void(void)> hashdonef, \
         NAME& device_context)  {} \
     std::string getname() { return STUB_NAME; } \
-    static void print_opencl_devices()  {} \
 };

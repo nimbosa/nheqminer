@@ -7,8 +7,7 @@
 
 enum class SolverType {
 	CPU = 0,
-	CUDA,
-	OPENCL
+	CUDA
 };
 
 class ISolver
